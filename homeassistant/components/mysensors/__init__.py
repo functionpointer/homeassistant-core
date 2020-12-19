@@ -2,6 +2,7 @@
 import logging
 
 import voluptuous as vol
+from mysensors import BaseAsyncGateway
 
 from homeassistant.components.mqtt import valid_publish_topic, valid_subscribe_topic
 from homeassistant.const import CONF_OPTIMISTIC
@@ -26,6 +27,8 @@ from .const import (
 )
 from .device import get_mysensors_devices
 from .gateway import finish_setup, get_mysensors_gateway, setup_gateways
+from ...config_entries import ConfigEntry
+from ...helpers.typing import HomeAssistantType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -111,10 +114,22 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-
-async def async_setup(hass, config):
+async def async_setup(hass, config) -> bool:
     """Set up the MySensors component."""
-    gateways = await setup_gateways(hass, config)
+    #async_setup is called whenever a new instance of this integration is started
+    #this might get triggered by configuration.yaml, by the user via lovelace, by discovery, maybe more?
+    #if triggered by something other than configuration.yaml, async_setup_entry will be called after
+
+    _LOGGER.critical("async setup called")
+
+    return True
+
+async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool:
+
+    _LOGGER.critical("Async setup entry called")
+    return True
+
+    gateways = await setup_gateways(hass, entry)
 
     if not gateways:
         _LOGGER.error("No devices could be setup as gateways, check your configuration")
@@ -122,12 +137,11 @@ async def async_setup(hass, config):
 
     hass.data[MYSENSORS_GATEWAYS] = gateways
 
-    hass.async_create_task(finish_setup(hass, config, gateways))
+    hass.async_create_task(finish_setup(hass, entry, gateways))
 
     return True
 
-
-def _get_mysensors_name(gateway, node_id, child_id):
+def _get_mysensors_name(gateway : BaseAsyncGateway, node_id, child_id) -> str:
     """Return a name for a node child."""
     node_name = f"{gateway.sensors[node_id].sketch_name} {node_id}"
     node_name = next(

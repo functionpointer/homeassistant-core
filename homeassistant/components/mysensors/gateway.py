@@ -6,7 +6,8 @@ import socket
 import sys
 
 import async_timeout
-from mysensors import mysensors
+from mysensors import mysensors, BaseAsyncGateway
+from typing import Optional, List, Dict, Tuple, Union
 import voluptuous as vol
 
 from homeassistant.const import CONF_OPTIMISTIC, EVENT_HOMEASSISTANT_STOP
@@ -58,7 +59,7 @@ def is_socket_address(value):
         raise vol.Invalid("Device is not a valid domain name or ip address") from err
 
 
-def get_mysensors_gateway(hass, gateway_id):
+def get_mysensors_gateway(hass, gateway_id) -> Optional[BaseAsyncGateway]:
     """Return MySensors gateway."""
     if MYSENSORS_GATEWAYS not in hass.data:
         hass.data[MYSENSORS_GATEWAYS] = {}
@@ -66,7 +67,7 @@ def get_mysensors_gateway(hass, gateway_id):
     return gateways.get(gateway_id)
 
 
-async def setup_gateways(hass, config):
+async def setup_gateways(hass, config) -> Dict[int, BaseAsyncGateway]:
     """Set up all gateways."""
     conf = config[DOMAIN]
     gateways = {}
@@ -83,7 +84,7 @@ async def setup_gateways(hass, config):
     return gateways
 
 
-async def _get_gateway(hass, config, gateway_conf, persistence_file):
+async def _get_gateway(hass, config, gateway_conf, persistence_file) -> Optional[BaseAsyncGateway]:
     """Return gateway after setup of the gateway."""
 
     conf = config[DOMAIN]
@@ -155,6 +156,7 @@ async def _get_gateway(hass, config, gateway_conf, persistence_file):
             except vol.Invalid:
                 # invalid ip address
                 return None
+    # this adds extra properties to the pymysensors objects
     gateway.metric = hass.config.units.is_metric
     gateway.optimistic = conf[CONF_OPTIMISTIC]
     gateway.device = device
