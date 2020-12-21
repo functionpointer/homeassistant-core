@@ -33,6 +33,7 @@ from .const import (
 )
 from .handler import HANDLERS
 from .helpers import discover_mysensors_platform, validate_child, validate_node
+from ...config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,40 +68,32 @@ def get_mysensors_gateway(hass, gateway_id) -> Optional[BaseAsyncGateway]:
     return gateways.get(gateway_id)
 
 
-async def setup_gateways(hass, config) -> Dict[int, BaseAsyncGateway]:
+async def setup_gateway(hass, entry: ConfigEntry) -> Optional[BaseAsyncGateway]:
     """Set up all gateways."""
-    conf = config[DOMAIN]
-    gateways = {}
 
-    for index, gateway_conf in enumerate(conf[CONF_GATEWAYS]):
-        persistence_file = gateway_conf.get(
-            CONF_PERSISTENCE_FILE,
-            hass.config.path(f"mysensors{index + 1}.pickle"),
-        )
-        ready_gateway = await _get_gateway(hass, config, gateway_conf, persistence_file)
-        if ready_gateway is not None:
-            gateways[id(ready_gateway)] = ready_gateway
+    persistence_file = entry.data.get(CONF_PERSISTENCE_FILE, hass.config.path(f"mysensors{entry.unique_id}.pickle"))
 
-    return gateways
+    ready_gateway = await _get_gateway(hass, entry, persistence_file)
+    return ready_gateway
 
 
-async def _get_gateway(hass, config, gateway_conf, persistence_file) -> Optional[BaseAsyncGateway]:
+async def _get_gateway(hass, entry: ConfigEntry, persistence_file) -> Optional[BaseAsyncGateway]:
     """Return gateway after setup of the gateway."""
 
-    conf = config[DOMAIN]
-    persistence = conf[CONF_PERSISTENCE]
-    version = conf[CONF_VERSION]
-    device = gateway_conf[CONF_DEVICE]
-    baud_rate = gateway_conf[CONF_BAUD_RATE]
-    tcp_port = gateway_conf[CONF_TCP_PORT]
-    in_prefix = gateway_conf.get(CONF_TOPIC_IN_PREFIX, "")
-    out_prefix = gateway_conf.get(CONF_TOPIC_OUT_PREFIX, "")
+    persistence = entry.data.get(CONF_PERSISTENCE)
+    version = entry.data.get(CONF_VERSION)
+    device = entry.data.get(CONF_DEVICE)
+    baud_rate = entry.data.get(CONF_BAUD_RATE)
+    tcp_port = entry.data.get(CONF_TCP_PORT)
+    in_prefix = entry.data.get(CONF_TOPIC_IN_PREFIX, "")
+    out_prefix = entry.data.get(CONF_TOPIC_OUT_PREFIX, "")
 
     if device == MQTT_COMPONENT:
-        if not await async_setup_component(hass, MQTT_COMPONENT, config):
-            return None
+        #what is the purpose of this?
+        #if not await async_setup_component(hass, MQTT_COMPONENT, entry):
+        #    return None
         mqtt = hass.components.mqtt
-        retain = conf[CONF_RETAIN]
+        retain = entry.data.get(CONF_RETAIN)
 
         def pub_callback(topic, payload, qos, retain):
             """Call MQTT publish function."""
@@ -158,17 +151,16 @@ async def _get_gateway(hass, config, gateway_conf, persistence_file) -> Optional
                 return None
     # this adds extra properties to the pymysensors objects
     gateway.metric = hass.config.units.is_metric
-    gateway.optimistic = conf[CONF_OPTIMISTIC]
+    gateway.optimistic = entry.data.get(CONF_OPTIMISTIC)
     gateway.device = device
-    gateway.event_callback = _gw_callback_factory(hass, config)
-    gateway.nodes_config = gateway_conf[CONF_NODES]
+    gateway.event_callback = _gw_callback_factory(hass, entry)
     if persistence:
         await gateway.start_persistence()
 
     return gateway
 
 
-async def finish_setup(hass, hass_config, gateways):
+async def finish_setup(hass, hass_config, gateway: BaseAsyncGateway):
     """Load any persistent devices and platforms and start gateway."""
     discover_tasks = []
     start_tasks = []
@@ -233,7 +225,7 @@ async def _gw_start(hass, gateway):
         hass.data.pop(gateway_ready_key, None)
 
 
-def _gw_callback_factory(hass, hass_config):
+def _gw_callback_factory(hass, hass_config: ConfigEntry):
     """Return a new callback for the gateway."""
 
     @callback

@@ -11,13 +11,14 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.util.decorator import Registry
 
 from .const import ATTR_DEVICES, DOMAIN, FLAT_PLATFORM_TYPES, TYPE_TO_PLATFORMS
+from ...config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 SCHEMAS = Registry()
 
 
 @callback
-def discover_mysensors_platform(hass, hass_config, platform, new_devices):
+def discover_mysensors_platform(hass, hass_config: ConfigEntry, platform, new_devices):
     """Discover a MySensors platform."""
     task = hass.async_create_task(
         discovery.async_load_platform(

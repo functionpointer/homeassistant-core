@@ -2,6 +2,7 @@
 import logging
 
 import voluptuous as vol
+from homeassistant.helpers import ConfigType
 from mysensors import BaseAsyncGateway
 
 from homeassistant.components.mqtt import valid_publish_topic, valid_subscribe_topic
@@ -26,7 +27,7 @@ from .const import (
     MYSENSORS_GATEWAYS,
 )
 from .device import get_mysensors_devices
-from .gateway import finish_setup, get_mysensors_gateway, setup_gateways
+from .gateway import finish_setup, get_mysensors_gateway, setup_gateway
 from ...config_entries import ConfigEntry
 from ...helpers.typing import HomeAssistantType
 
@@ -114,44 +115,33 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-async def async_setup(hass, config) -> bool:
+async def async_setup(hass, config: ConfigType) -> bool:
     """Set up the MySensors component."""
-    #async_setup is called whenever a new instance of this integration is started
-    #this might get triggered by configuration.yaml, by the user via lovelace, by discovery, maybe more?
-    #if triggered by something other than configuration.yaml, async_setup_entry will be called after
+    #setup from configuration.yaml
 
     _LOGGER.critical("async setup called")
 
-    return True
+    return False
 
 async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool:
 
-    _LOGGER.critical("Async setup entry called")
-    return True
+    gateway = await setup_gateway(hass, entry)
 
-    gateways = await setup_gateways(hass, entry)
-
-    if not gateways:
-        _LOGGER.error("No devices could be setup as gateways, check your configuration")
+    if not gateway:
+        _LOGGER.error("gateway setup failed")
         return False
 
-    hass.data[MYSENSORS_GATEWAYS] = gateways
+    if hass.data[MYSENSORS_GATEWAYS] is None:
+        hass.data[MYSENSORS_GATEWAYS] = []
+    hass.data[MYSENSORS_GATEWAYS].append(gateway)
 
-    hass.async_create_task(finish_setup(hass, entry, gateways))
+    hass.async_create_task(finish_setup(hass, entry, gateway))
 
     return True
 
 def _get_mysensors_name(gateway : BaseAsyncGateway, node_id, child_id) -> str:
     """Return a name for a node child."""
     node_name = f"{gateway.sensors[node_id].sketch_name} {node_id}"
-    node_name = next(
-        (
-            node[CONF_NODE_NAME]
-            for conf_id, node in gateway.nodes_config.items()
-            if node.get(CONF_NODE_NAME) is not None and conf_id == node_id
-        ),
-        node_name,
-    )
     return f"{node_name} {child_id}"
 
 
