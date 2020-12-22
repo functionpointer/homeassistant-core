@@ -2,7 +2,6 @@
 import logging
 
 import voluptuous as vol
-from homeassistant.helpers import ConfigType
 from mysensors import BaseAsyncGateway
 
 from homeassistant.components.mqtt import valid_publish_topic, valid_subscribe_topic
@@ -29,7 +28,7 @@ from .const import (
 from .device import get_mysensors_devices
 from .gateway import finish_setup, get_mysensors_gateway, setup_gateway
 from ...config_entries import ConfigEntry
-from ...helpers.typing import HomeAssistantType
+from ...helpers.typing import HomeAssistantType, ConfigType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ CONF_NODE_NAME = "name"
 
 DEFAULT_BAUD_RATE = 115200
 DEFAULT_TCP_PORT = 5003
-DEFAULT_VERSION = "1.4"
+DEFAULT_VERSION = "2.3"
 
 
 def has_all_unique_files(value):
@@ -117,21 +116,27 @@ CONFIG_SCHEMA = vol.Schema(
 
 async def async_setup(hass, config: ConfigType) -> bool:
     """Set up the MySensors component."""
-    #setup from configuration.yaml
+    if config is None:
+        #when configured via ConfigEntry, hass calls async_setup(hass,None) and then calls async_setup_entry(...).
+        #so in async_setup we have to check if there are any ConfigEntries and then return True. This lets async_setup_entry run.
+        return bool(hass.config_entries.async_entries(DOMAIN))
 
-    _LOGGER.critical("async setup called")
 
-    return False
+    #there is an actual configuration in configuration.yaml, so we have to process it
+    _LOGGER.info("async setup called")
+
+    return True
 
 async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool:
 
+    _LOGGER.debug("async_setup_entry: %s (id: %s)", entry.title, entry.unique_id)
     gateway = await setup_gateway(hass, entry)
 
     if not gateway:
         _LOGGER.error("gateway setup failed")
         return False
 
-    if hass.data[MYSENSORS_GATEWAYS] is None:
+    if MYSENSORS_GATEWAYS not in hass.data:
         hass.data[MYSENSORS_GATEWAYS] = []
     hass.data[MYSENSORS_GATEWAYS].append(gateway)
 

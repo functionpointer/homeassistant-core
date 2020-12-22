@@ -26,7 +26,7 @@ def discover_mysensors_platform(hass, hass_config: ConfigEntry, platform, new_de
             platform,
             DOMAIN,
             {ATTR_DEVICES: new_devices, CONF_NAME: DOMAIN},
-            hass_config,
+            {"entry": hass_config},
         )
     )
     return task

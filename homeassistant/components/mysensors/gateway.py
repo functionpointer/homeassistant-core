@@ -7,7 +7,7 @@ import sys
 
 import async_timeout
 from mysensors import mysensors, BaseAsyncGateway
-from typing import Optional, List, Dict, Tuple, Union
+from typing import Optional, List, Dict, Tuple, Union, Any
 import voluptuous as vol
 
 from homeassistant.const import CONF_OPTIMISTIC, EVENT_HOMEASSISTANT_STOP
@@ -71,29 +71,36 @@ def get_mysensors_gateway(hass, gateway_id) -> Optional[BaseAsyncGateway]:
 async def setup_gateway(hass, entry: ConfigEntry) -> Optional[BaseAsyncGateway]:
     """Set up all gateways."""
 
-    persistence_file = entry.data.get(CONF_PERSISTENCE_FILE, hass.config.path(f"mysensors{entry.unique_id}.pickle"))
-
-    ready_gateway = await _get_gateway(hass, entry, persistence_file)
+    ready_gateway = await _get_gateway(hass, entry)
     return ready_gateway
 
 
-async def _get_gateway(hass, entry: ConfigEntry, persistence_file) -> Optional[BaseAsyncGateway]:
+async def _get_gateway(hass, entry: Union[ConfigEntry,Dict[str, Any]], unique_id: Optional[str]=None) -> Optional[BaseAsyncGateway]:
     """Return gateway after setup of the gateway."""
 
-    persistence = entry.data.get(CONF_PERSISTENCE)
-    version = entry.data.get(CONF_VERSION)
-    device = entry.data.get(CONF_DEVICE)
-    baud_rate = entry.data.get(CONF_BAUD_RATE)
-    tcp_port = entry.data.get(CONF_TCP_PORT)
-    in_prefix = entry.data.get(CONF_TOPIC_IN_PREFIX, "")
-    out_prefix = entry.data.get(CONF_TOPIC_OUT_PREFIX, "")
+    if isinstance(entry, ConfigEntry):
+        data: Dict[str, Any] = entry.data
+        unique_id = entry.unique_id
+    else:
+        data: Dict[str, Any] = entry
+
+    if unique_id is None:
+        raise ValueError("no unique id! either give configEntry for auto-extraction or explicitly give one")
+    persistence_file = data.get(CONF_PERSISTENCE_FILE, hass.config.path(f"mysensors{unique_id}.pickle"))
+    persistence = data.get(CONF_PERSISTENCE)
+    version = data.get(CONF_VERSION)
+    device = data.get(CONF_DEVICE)
+    baud_rate = data.get(CONF_BAUD_RATE)
+    tcp_port = data.get(CONF_TCP_PORT)
+    in_prefix = data.get(CONF_TOPIC_IN_PREFIX, "")
+    out_prefix = data.get(CONF_TOPIC_OUT_PREFIX, "")
 
     if device == MQTT_COMPONENT:
         #what is the purpose of this?
         #if not await async_setup_component(hass, MQTT_COMPONENT, entry):
         #    return None
         mqtt = hass.components.mqtt
-        retain = entry.data.get(CONF_RETAIN)
+        retain = data.get(CONF_RETAIN)
 
         def pub_callback(topic, payload, qos, retain):
             """Call MQTT publish function."""
@@ -151,7 +158,7 @@ async def _get_gateway(hass, entry: ConfigEntry, persistence_file) -> Optional[B
                 return None
     # this adds extra properties to the pymysensors objects
     gateway.metric = hass.config.units.is_metric
-    gateway.optimistic = entry.data.get(CONF_OPTIMISTIC)
+    gateway.optimistic = data.get(CONF_OPTIMISTIC)
     gateway.device = device
     gateway.event_callback = _gw_callback_factory(hass, entry)
     if persistence:
@@ -160,13 +167,12 @@ async def _get_gateway(hass, entry: ConfigEntry, persistence_file) -> Optional[B
     return gateway
 
 
-async def finish_setup(hass, hass_config, gateway: BaseAsyncGateway):
+async def finish_setup(hass, hass_config: ConfigEntry, gateway: BaseAsyncGateway):
     """Load any persistent devices and platforms and start gateway."""
     discover_tasks = []
     start_tasks = []
-    for gateway in gateways.values():
-        discover_tasks.append(_discover_persistent_devices(hass, hass_config, gateway))
-        start_tasks.append(_gw_start(hass, gateway))
+    discover_tasks.append(_discover_persistent_devices(hass, hass_config, gateway))
+    start_tasks.append(_gw_start(hass, gateway))
     if discover_tasks:
         # Make sure all devices and platforms are loaded before gateway start.
         await asyncio.wait(discover_tasks)
@@ -174,7 +180,7 @@ async def finish_setup(hass, hass_config, gateway: BaseAsyncGateway):
         await asyncio.wait(start_tasks)
 
 
-async def _discover_persistent_devices(hass, hass_config, gateway):
+async def _discover_persistent_devices(hass, hass_config: ConfigEntry, gateway):
     """Discover platforms for devices loaded via persistence file."""
     tasks = []
     new_devices = defaultdict(list)
@@ -192,7 +198,7 @@ async def _discover_persistent_devices(hass, hass_config, gateway):
         await asyncio.wait(tasks)
 
 
-async def _gw_start(hass, gateway):
+async def _gw_start(hass, gateway: BaseAsyncGateway):
     """Start the gateway."""
     # Don't use hass.async_create_task to avoid holding up setup indefinitely.
     connect_task = hass.loop.create_task(gateway.start())
