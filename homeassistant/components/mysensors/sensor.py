@@ -1,6 +1,10 @@
 """Support for MySensors sensors."""
+from typing import Callable
+
 from homeassistant.components import mysensors
+from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
 from homeassistant.components.sensor import DOMAIN
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONDUCTIVITY,
     DEGREE,
@@ -18,6 +22,7 @@ from homeassistant.const import (
     VOLT,
     VOLUME_CUBIC_METERS,
 )
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 SENSORS = {
     "V_TEMP": [None, "mdi:thermometer"],
@@ -56,14 +61,23 @@ SENSORS = {
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the MySensors platform for sensors."""
-    mysensors.setup_mysensors_platform(
-        hass,
-        DOMAIN,
-        discovery_info,
-        MySensorsSensor,
-        async_add_entities=async_add_entities,
-    )
+    pass
 
+
+async def async_setup_entry(hass, config_entry: ConfigEntry, async_add_entities: Callable):
+    async def async_discover(discovery_info):
+        """Discover and add an MQTT cover."""
+        mysensors.setup_mysensors_platform(
+            hass,
+            DOMAIN,
+            discovery_info,
+            MySensorsSensor,
+            async_add_entities=async_add_entities,
+        )
+
+    async_dispatcher_connect(
+        hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
+    )
 
 class MySensorsSensor(mysensors.device.MySensorsEntity):
     """Representation of a MySensors Sensor child node."""

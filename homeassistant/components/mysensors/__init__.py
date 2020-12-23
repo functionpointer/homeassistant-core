@@ -25,7 +25,7 @@ from .const import (
     CONF_TOPIC_OUT_PREFIX,
     CONF_VERSION,
     DOMAIN,
-    MYSENSORS_GATEWAYS, SensorType,
+    MYSENSORS_GATEWAYS, SensorType, PLATFORM_TYPES,
 )
 from .device import get_mysensors_devices
 from .gateway import finish_setup, get_mysensors_gateway, setup_gateway
@@ -143,7 +143,11 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
         hass.data[MYSENSORS_GATEWAYS] = {}
     hass.data[MYSENSORS_GATEWAYS][id(gateway)] = gateway
 
-    hass.async_create_task(finish_setup(hass, entry, gateway))
+    async def finish():
+        for platform in PLATFORM_TYPES:
+            await hass.config_entries.async_forward_entry_setup(entry, platform)
+        await finish_setup(hass, entry, gateway)
+    hass.async_create_task(finish())
 
     return True
 
@@ -178,6 +182,7 @@ def setup_mysensors_platform(
         gateway_id, node_id, child_id, value_type = dev_id
         gateway: Optional[BaseAsyncGateway] = get_mysensors_gateway(hass, gateway_id)
         if not gateway:
+            _LOGGER.warning("skipping setup of %s, no gateway found.", dev_id)
             continue
         device_class_copy = device_class
         if isinstance(device_class, dict):

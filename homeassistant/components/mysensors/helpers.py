@@ -15,26 +15,22 @@ from homeassistant.helpers import discovery
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util.decorator import Registry
 
-from .const import ATTR_DEVICES, DOMAIN, FLAT_PLATFORM_TYPES, TYPE_TO_PLATFORMS, ValueType, SensorType, DevId
+from .const import ATTR_DEVICES, DOMAIN, FLAT_PLATFORM_TYPES, TYPE_TO_PLATFORMS, ValueType, SensorType, DevId, \
+    MYSENSORS_DISCOVERY
 from ...config_entries import ConfigEntry
+from ...helpers.dispatcher import async_dispatcher_send
 
 _LOGGER = logging.getLogger(__name__)
 SCHEMAS = Registry()
 
 
 @callback
-def discover_mysensors_platform(hass, hass_config: ConfigEntry, platform: str, new_devices: List[DevId]):
+def discover_mysensors_platform(hass, hass_config: ConfigEntry, platform: str, new_devices: List[DevId]) -> None:
     """Discover a MySensors platform."""
-    task = hass.async_create_task(
-        discovery.async_load_platform(
-            hass,
-            platform,
-            DOMAIN,
-            {ATTR_DEVICES: new_devices, CONF_NAME: DOMAIN},
-            {"entry": hass_config},
-        )
+    _LOGGER.debug("discovering platform %s with devIds: %s", platform, new_devices)
+    async_dispatcher_send(
+        hass, MYSENSORS_DISCOVERY.format(hass_config.unique_id, platform), {ATTR_DEVICES: new_devices, CONF_NAME: DOMAIN}
     )
-    return task
 
 
 def default_schema(gateway: BaseAsyncGateway, child: ChildSensor, value_type_name: ValueType) -> vol.Schema:

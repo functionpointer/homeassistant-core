@@ -6,7 +6,8 @@ from homeassistant.components.switch import DOMAIN, SwitchEntity
 from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
 import homeassistant.helpers.config_validation as cv
 
-from .const import DOMAIN as MYSENSORS_DOMAIN, SERVICE_SEND_IR_CODE
+from .const import DOMAIN as MYSENSORS_DOMAIN, SERVICE_SEND_IR_CODE, MYSENSORS_DISCOVERY
+from ...helpers.dispatcher import async_dispatcher_connect
 
 ATTR_IR_CODE = "V_IR_SEND"
 
@@ -14,8 +15,10 @@ SEND_IR_CODE_SERVICE_SCHEMA = vol.Schema(
     {vol.Optional(ATTR_ENTITY_ID): cv.entity_ids, vol.Required(ATTR_IR_CODE): cv.string}
 )
 
-
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    pass
+
+async def async_setup_entry(hass, config_entry: ConfigEntry, async_add_entities: Callable):
     """Set up the mysensors platform for switches."""
     device_class_map = {
         "S_DOOR": MySensorsSwitch,
@@ -32,43 +35,50 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         "S_MOISTURE": MySensorsSwitch,
         "S_WATER_QUALITY": MySensorsSwitch,
     }
-    mysensors.setup_mysensors_platform(
-        hass,
-        DOMAIN,
-        discovery_info,
-        device_class_map,
-        async_add_entities=async_add_entities,
-    )
 
-    async def async_send_ir_code_service(service):
-        """Set IR code as device state attribute."""
-        entity_ids = service.data.get(ATTR_ENTITY_ID)
-        ir_code = service.data.get(ATTR_IR_CODE)
-        devices = mysensors.get_mysensors_devices(hass, DOMAIN)
+    async def async_discover(discovery_info):
+        """Discover and add an MQTT cover."""
+        mysensors.setup_mysensors_platform(
+            hass,
+            DOMAIN,
+            discovery_info,
+            device_class_map,
+            async_add_entities=async_add_entities,
+        )
 
-        if entity_ids:
-            _devices = [
-                device
-                for device in devices.values()
-                if isinstance(device, MySensorsIRSwitch)
-                and device.entity_id in entity_ids
-            ]
-        else:
-            _devices = [
-                device
-                for device in devices.values()
-                if isinstance(device, MySensorsIRSwitch)
-            ]
+        async def async_send_ir_code_service(service):
+            """Set IR code as device state attribute."""
+            entity_ids = service.data.get(ATTR_ENTITY_ID)
+            ir_code = service.data.get(ATTR_IR_CODE)
+            devices = mysensors.get_mysensors_devices(hass, DOMAIN)
 
-        kwargs = {ATTR_IR_CODE: ir_code}
-        for device in _devices:
-            await device.async_turn_on(**kwargs)
+            if entity_ids:
+                _devices = [
+                    device
+                    for device in devices.values()
+                    if isinstance(device, MySensorsIRSwitch)
+                       and device.entity_id in entity_ids
+                ]
+            else:
+                _devices = [
+                    device
+                    for device in devices.values()
+                    if isinstance(device, MySensorsIRSwitch)
+                ]
 
-    hass.services.async_register(
-        MYSENSORS_DOMAIN,
-        SERVICE_SEND_IR_CODE,
-        async_send_ir_code_service,
-        schema=SEND_IR_CODE_SERVICE_SCHEMA,
+            kwargs = {ATTR_IR_CODE: ir_code}
+            for device in _devices:
+                await device.async_turn_on(**kwargs)
+
+        hass.services.async_register(
+            MYSENSORS_DOMAIN,
+            SERVICE_SEND_IR_CODE,
+            async_send_ir_code_service,
+            schema=SEND_IR_CODE_SERVICE_SCHEMA,
+        )
+
+    async_dispatcher_connect(
+        hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
     )
 
 

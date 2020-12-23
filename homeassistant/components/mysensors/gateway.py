@@ -195,7 +195,7 @@ async def _discover_persistent_devices(hass, hass_config: ConfigEntry, gateway: 
             for platform, dev_ids in validated.items():
                 new_devices[platform].extend(dev_ids)
     for platform, dev_ids in new_devices.items():
-        tasks.append(discover_mysensors_platform(hass, hass_config, platform, dev_ids))
+        discover_mysensors_platform(hass, hass_config, platform, dev_ids)
     if tasks:
         await asyncio.wait(tasks)
 
