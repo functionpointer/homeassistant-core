@@ -28,7 +28,7 @@ from .const import (
     MYSENSORS_GATEWAYS, SensorType, PLATFORM_TYPES, SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT,
 )
 from .device import get_mysensors_devices
-from .gateway import finish_setup, get_mysensors_gateway, setup_gateway
+from .gateway import finish_setup, get_mysensors_gateway, setup_gateway, gw_stop
 from .const import DevId
 from ...config_entries import ConfigEntry
 from ...helpers.typing import HomeAssistantType, ConfigType
@@ -162,11 +162,10 @@ async def async_unload_entry(hass: HomeAssistantType, entry: ConfigEntry) -> boo
 
     del hass.data[MYSENSORS_GATEWAYS][entry.unique_id]
 
-    #TODO: terminate connection by stopping the gateway
-
+    for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
+        await hass.config_entries.async_forward_entry_unload(entry, platform)
     async def finish():
-        for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
-            await hass.config_entries.async_forward_entry_unload(entry, platform)
+        await gw_stop(hass, gateway)
     hass.async_create_task(finish())
     return True
 

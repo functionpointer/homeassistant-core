@@ -200,20 +200,19 @@ async def _discover_persistent_devices(hass, hass_config: ConfigEntry, gateway: 
     if tasks:
         await asyncio.wait(tasks)
 
+async def gw_stop(hass, gateway: BaseAsyncGateway):
+    _LOGGER.info("stopping gateway %s", gateway.unique_id)
+    if hasattr(gateway, "connect_task") and gateway.connect_task is not None and not gateway.connect_task.done():
+        gateway.connect_task.cancel()
+    await gateway.stop()
+
 
 async def _gw_start(hass, gateway: BaseAsyncGateway):
     """Start the gateway."""
     # Don't use hass.async_create_task to avoid holding up setup indefinitely.
-    connect_task = hass.loop.create_task(gateway.start())
+    gateway.connect_task = hass.loop.create_task(gateway.start())
 
-    @callback
-    def gw_stop(event):
-        """Trigger to stop the gateway."""
-        hass.async_create_task(gateway.stop())
-        if not connect_task.done():
-            connect_task.cancel()
-
-    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, gw_stop)
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, lambda event: gw_stop(hass, gateway))
     if gateway.device == "mqtt":
         # Gatways connected via mqtt doesn't send gateway ready message.
         return
