@@ -1,11 +1,13 @@
 """Handle MySensors devices."""
 from functools import partial
 import logging
+from typing import Dict, List
 
 from homeassistant.const import ATTR_BATTERY_LEVEL, STATE_OFF, STATE_ON
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
+from .const import DevId
 
 from .const import CHILD_CALLBACK, NODE_CALLBACK, UPDATE_DELAY
 
@@ -17,13 +19,6 @@ ATTR_DEVICE = "device"
 ATTR_NODE_ID = "node_id"
 ATTR_HEARTBEAT = "heartbeat"
 MYSENSORS_PLATFORM_DEVICES = "mysensors_devices_{}"
-
-
-def get_mysensors_devices(hass, domain):
-    """Return MySensors devices for a platform."""
-    if MYSENSORS_PLATFORM_DEVICES.format(domain) not in hass.data:
-        hass.data[MYSENSORS_PLATFORM_DEVICES.format(domain)] = {}
-    return hass.data[MYSENSORS_PLATFORM_DEVICES.format(domain)]
 
 
 class MySensorsDevice:
@@ -115,6 +110,12 @@ class MySensorsDevice:
         delayed_update = partial(self.hass.async_create_task, update())
         self.hass.loop.call_later(UPDATE_DELAY, delayed_update)
 
+
+def get_mysensors_devices(hass, domain: str) -> Dict[DevId, MySensorsDevice]:
+    """Return MySensors devices for a hass platform name"""
+    if MYSENSORS_PLATFORM_DEVICES.format(domain) not in hass.data:
+        hass.data[MYSENSORS_PLATFORM_DEVICES.format(domain)] = {}
+    return hass.data[MYSENSORS_PLATFORM_DEVICES.format(domain)]
 
 class MySensorsEntity(MySensorsDevice, Entity):
     """Representation of a MySensors entity."""

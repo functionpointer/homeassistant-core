@@ -6,8 +6,8 @@ import socket
 import sys
 
 import async_timeout
-from mysensors import mysensors, BaseAsyncGateway
-from typing import Optional, List, Dict, Tuple, Union, Any
+from mysensors import mysensors, BaseAsyncGateway, Sensor, Message
+from typing import Optional, Dict, Union, Any, Callable
 import voluptuous as vol
 
 from homeassistant.const import CONF_OPTIMISTIC, EVENT_HOMEASSISTANT_STOP
@@ -31,6 +31,7 @@ from .const import (
     MYSENSORS_GATEWAY_READY,
     MYSENSORS_GATEWAYS,
 )
+from .const import GatewayId
 from .handler import HANDLERS
 from .helpers import discover_mysensors_platform, validate_child, validate_node
 from ...config_entries import ConfigEntry
@@ -60,8 +61,8 @@ def is_socket_address(value):
         raise vol.Invalid("Device is not a valid domain name or ip address") from err
 
 
-def get_mysensors_gateway(hass, gateway_id) -> Optional[BaseAsyncGateway]:
-    """Return MySensors gateway."""
+def get_mysensors_gateway(hass, gateway_id: GatewayId) -> Optional[BaseAsyncGateway]:
+    """Returns the Gateway for a given GatewayId."""
     if MYSENSORS_GATEWAYS not in hass.data:
         hass.data[MYSENSORS_GATEWAYS] = {}
     gateways = hass.data.get(MYSENSORS_GATEWAYS)
@@ -180,15 +181,15 @@ async def finish_setup(hass, hass_config: ConfigEntry, gateway: BaseAsyncGateway
         await asyncio.wait(start_tasks)
 
 
-async def _discover_persistent_devices(hass, hass_config: ConfigEntry, gateway):
+async def _discover_persistent_devices(hass, hass_config: ConfigEntry, gateway: BaseAsyncGateway):
     """Discover platforms for devices loaded via persistence file."""
     tasks = []
     new_devices = defaultdict(list)
     for node_id in gateway.sensors:
         if not validate_node(gateway, node_id):
             continue
-        node = gateway.sensors[node_id]
-        for child in node.children.values():
+        node: Sensor = gateway.sensors[node_id]
+        for child in node.children.values():#child is of type ChildSensor
             validated = validate_child(gateway, node_id, child)
             for platform, dev_ids in validated.items():
                 new_devices[platform].extend(dev_ids)
@@ -231,16 +232,16 @@ async def _gw_start(hass, gateway: BaseAsyncGateway):
         hass.data.pop(gateway_ready_key, None)
 
 
-def _gw_callback_factory(hass, hass_config: ConfigEntry):
+def _gw_callback_factory(hass, hass_config: ConfigEntry) -> Callable[[Message], None]:
     """Return a new callback for the gateway."""
 
     @callback
-    def mysensors_callback(msg):
+    def mysensors_callback(msg: Message):
         """Handle messages from a MySensors gateway."""
         _LOGGER.debug("Node update: node %s child %s", msg.node_id, msg.child_id)
 
         msg_type = msg.gateway.const.MessageType(msg.type)
-        msg_handler = HANDLERS.get(msg_type.name)
+        msg_handler: Callable[[Any, ConfigEntry, Message], None] = HANDLERS.get(msg_type.name)
 
         if msg_handler is None:
             return
