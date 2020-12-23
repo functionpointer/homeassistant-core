@@ -24,6 +24,7 @@ SCHEMA: str = "schema"
 CHILD_CALLBACK: str = "mysensors_child_callback_{}_{}_{}_{}"
 NODE_CALLBACK: str = "mysensors_node_callback_{}_{}"
 MYSENSORS_DISCOVERY = "mysensors_discovery_{}_{}"
+MYSENSORS_ON_UNLOAD = "MYSENSORS_ON_UNLOAD_{}"
 TYPE: str = "type"
 UPDATE_DELAY: float = 0.1
 

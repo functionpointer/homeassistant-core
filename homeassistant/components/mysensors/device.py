@@ -10,7 +10,7 @@ from homeassistant.const import ATTR_BATTERY_LEVEL, STATE_OFF, STATE_ON
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
-from .const import DevId, ValueType
+from .const import DevId, PLATFORM_TYPES
 from .const import DOMAIN
 
 from .const import CHILD_CALLBACK, NODE_CALLBACK, UPDATE_DELAY
@@ -33,11 +33,31 @@ class MySensorsDevice:
         self.gateway: BaseAsyncGateway = gateway
         self.node_id: int = node_id
         self.child_id: int = child_id
-        self.value_type: ValueType = value_type
+        self.value_type: int = value_type # value_type as int. string variant can be looked up in gateway consts
         self.child_type = self._mysensors_childsensor.type
         self._values = {}
         self._update_scheduled = False
         self.hass = None
+
+    @property
+    def dev_id(self) -> DevId:
+        return self.gateway_id, self.node_id, self.child_id, self.value_type
+
+    @property
+    def logger(self):
+        return logging.getLogger(f"{__name__}.{self.name}")
+
+    async def async_will_remove_from_hass(self):
+        for platform in PLATFORM_TYPES:
+            platform_str = MYSENSORS_PLATFORM_DEVICES.format(platform)
+            if platform_str in self.hass.data:
+                platform_dict = self.hass.data[platform_str]
+                if self.dev_id in platform_dict:
+                    if platform_dict[self.dev_id] is not self:
+                        self.logger.warning("possible duplicate device: %s", self.dev_id)
+                    del platform_dict[self.dev_id]
+                    self.logger.debug("deleted %s from platform %s", self.dev_id, platform)
+
 
     @property
     def gateway_id(self) -> str:
@@ -180,17 +200,15 @@ class MySensorsEntity(MySensorsDevice, Entity):
 
     async def async_added_to_hass(self):
         """Register update callback."""
-        gateway_id = id(self.gateway)
-        dev_id = gateway_id, self.node_id, self.child_id, self.value_type
         self.async_on_remove(
             async_dispatcher_connect(
-                self.hass, CHILD_CALLBACK.format(*dev_id), self.async_update_callback
+                self.hass, CHILD_CALLBACK.format(*self.dev_id), self.async_update_callback
             )
         )
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
-                NODE_CALLBACK.format(gateway_id, self.node_id),
+                NODE_CALLBACK.format(self.gateway_id, self.node_id),
                 self.async_update_callback,
             )
         )

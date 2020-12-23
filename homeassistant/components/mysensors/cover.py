@@ -4,7 +4,8 @@ from typing import Callable
 
 from homeassistant.components import mysensors
 from homeassistant.components.cover import ATTR_POSITION, DOMAIN, CoverEntity
-from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
+from homeassistant.components.mysensors import on_unload
+from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY, MYSENSORS_DISCOVERY_DISPATCHER
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -30,12 +31,9 @@ async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, 
             async_add_entities=async_add_entities,
         )
 
-    async_dispatcher_connect(
+    await on_unload(hass, config_entry, async_dispatcher_connect(
         hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
-    )
-
-async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
-    return True
+    ))
 
 
 class MySensorsCover(mysensors.device.MySensorsEntity, CoverEntity):

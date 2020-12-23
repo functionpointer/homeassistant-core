@@ -25,7 +25,8 @@ from .const import (
     CONF_TOPIC_OUT_PREFIX,
     CONF_VERSION,
     DOMAIN,
-    MYSENSORS_GATEWAYS, SensorType, PLATFORM_TYPES, SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT,
+    MYSENSORS_GATEWAYS, SensorType, PLATFORM_TYPES, SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT, GatewayId,
+    MYSENSORS_ON_UNLOAD,
 )
 from .device import get_mysensors_devices
 from .gateway import finish_setup, get_mysensors_gateway, setup_gateway, gw_stop
@@ -144,7 +145,6 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
     hass.data[MYSENSORS_GATEWAYS][entry.unique_id] = gateway
 
     async def finish():
-        _LOGGER.debug("forwarding setup to %s", SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT)
         for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
             await hass.config_entries.async_forward_entry_setup(entry, platform)
         await finish_setup(hass, entry, gateway)
@@ -160,14 +160,30 @@ async def async_unload_entry(hass: HomeAssistantType, entry: ConfigEntry) -> boo
         _LOGGER.error("cant unload configentry %s, no gateway found", entry.unique_id)
         return False
 
+    for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
+        _LOGGER.debug("forwarding unload to %s", platform)
+        await hass.config_entries.async_forward_entry_unload(entry, platform)
+
+    key = MYSENSORS_ON_UNLOAD.format(entry.unique_id)
+    if key in hass.data:
+        for fnct in hass.data[key]:
+            fnct()
+
     del hass.data[MYSENSORS_GATEWAYS][entry.unique_id]
 
-    for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
-        await hass.config_entries.async_forward_entry_unload(entry, platform)
-    async def finish():
-        await gw_stop(hass, gateway)
-    hass.async_create_task(finish())
+    hass.async_create_task(gw_stop(hass, gateway))
     return True
+
+
+async def on_unload(hass: HomeAssistantType, entry: Union[ConfigEntry,GatewayId], fnct: Callable) -> None:
+    if isinstance(entry, GatewayId):
+        uniqueid = entry
+    else:
+        uniqueid = entry.unique_id
+    key = MYSENSORS_ON_UNLOAD.format(uniqueid)
+    if key not in hass.data:
+        hass.data[key] = []
+    hass.data[key].append(fnct)
 
 @callback
 def setup_mysensors_platform(
@@ -188,6 +204,7 @@ def setup_mysensors_platform(
     # Only act if called via MySensors by discovery event.
     # Otherwise gateway is not set up.
     if not discovery_info:
+        _LOGGER.debug("skipping setup due to no discovery info")
         return None
     if device_args is None:
         device_args = ()
@@ -196,6 +213,7 @@ def setup_mysensors_platform(
     for dev_id in new_dev_ids:
         devices: Dict[DevId, MySensorsDevice] = get_mysensors_devices(hass, domain)
         if dev_id in devices:
+            _LOGGER.debug("skipping setup of %s for platform %s as it already exists", dev_id, domain)
             continue
         gateway_id, node_id, child_id, value_type = dev_id
         gateway: Optional[BaseAsyncGateway] = get_mysensors_gateway(hass, gateway_id)

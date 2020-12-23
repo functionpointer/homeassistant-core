@@ -217,7 +217,7 @@ async def _gw_start(hass, gateway: BaseAsyncGateway):
         # Gatways connected via mqtt doesn't send gateway ready message.
         return
     gateway_ready = asyncio.Future()
-    gateway_ready_key = MYSENSORS_GATEWAY_READY.format(id(gateway))
+    gateway_ready_key = MYSENSORS_GATEWAY_READY.format(gateway.unique_id)
     hass.data[gateway_ready_key] = gateway_ready
 
     try:

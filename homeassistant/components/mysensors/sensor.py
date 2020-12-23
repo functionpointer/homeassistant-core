@@ -2,6 +2,7 @@
 from typing import Callable
 
 from homeassistant.components import mysensors
+from homeassistant.components.mysensors import on_unload
 from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
 from homeassistant.components.sensor import DOMAIN
 from homeassistant.config_entries import ConfigEntry
@@ -76,12 +77,10 @@ async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, 
             async_add_entities=async_add_entities,
         )
 
-    async_dispatcher_connect(
+    await on_unload(hass, config_entry, async_dispatcher_connect(
         hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
-    )
+    ))
 
-async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
-    return True
 
 class MySensorsSensor(mysensors.device.MySensorsEntity):
     """Representation of a MySensors Sensor child node."""

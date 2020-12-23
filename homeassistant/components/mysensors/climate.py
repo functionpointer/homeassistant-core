@@ -15,6 +15,7 @@ from homeassistant.components.climate.const import (
     SUPPORT_TARGET_TEMPERATURE,
     SUPPORT_TARGET_TEMPERATURE_RANGE,
 )
+from homeassistant.components.mysensors import on_unload
 from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS, TEMP_FAHRENHEIT
@@ -54,13 +55,10 @@ async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, 
             async_add_entities=async_add_entities,
         )
 
-    async_dispatcher_connect(
+    await on_unload(hass, config_entry, async_dispatcher_connect(
         hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
-    )
+    ))
 
-
-async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
-    return True
 
 class MySensorsHVAC(mysensors.device.MySensorsEntity, ClimateEntity):
     """Representation of a MySensors HVAC."""

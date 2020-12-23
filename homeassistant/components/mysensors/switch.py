@@ -7,6 +7,7 @@ from homeassistant.components import mysensors
 from homeassistant.components.switch import DOMAIN, SwitchEntity
 from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
 import homeassistant.helpers.config_validation as cv
+from . import on_unload
 
 from .const import DOMAIN as MYSENSORS_DOMAIN, SERVICE_SEND_IR_CODE, MYSENSORS_DISCOVERY
 from ...config_entries import ConfigEntry
@@ -83,12 +84,10 @@ async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, 
             schema=SEND_IR_CODE_SERVICE_SCHEMA,
         )
 
-    async_dispatcher_connect(
+    await on_unload(hass, config_entry, async_dispatcher_connect(
         hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
-    )
+    ))
 
-async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
-    return True
 
 class MySensorsSwitch(mysensors.device.MySensorsEntity, SwitchEntity):
     """Representation of the value of a MySensors Switch child node."""

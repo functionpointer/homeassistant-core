@@ -12,6 +12,7 @@ from homeassistant.components.light import (
     SUPPORT_WHITE_VALUE,
     LightEntity,
 )
+from homeassistant.components.mysensors import on_unload
 from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON
@@ -45,12 +46,9 @@ async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, 
             async_add_entities=async_add_entities,
         )
 
-    async_dispatcher_connect(
+    await on_unload(hass, config_entry, async_dispatcher_connect(
         hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
-    )
-
-async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
-    return True
+    ))
 
 class MySensorsLight(mysensors.device.MySensorsEntity, LightEntity):
     """Representation of a MySensors Light child node."""
