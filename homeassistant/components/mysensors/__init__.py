@@ -25,7 +25,7 @@ from .const import (
     CONF_TOPIC_OUT_PREFIX,
     CONF_VERSION,
     DOMAIN,
-    MYSENSORS_GATEWAYS, SensorType, PLATFORM_TYPES,
+    MYSENSORS_GATEWAYS, SensorType, PLATFORM_TYPES, SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT,
 )
 from .device import get_mysensors_devices
 from .gateway import finish_setup, get_mysensors_gateway, setup_gateway
@@ -141,15 +141,32 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
 
     if MYSENSORS_GATEWAYS not in hass.data:
         hass.data[MYSENSORS_GATEWAYS] = {}
-    hass.data[MYSENSORS_GATEWAYS][id(gateway)] = gateway
+    hass.data[MYSENSORS_GATEWAYS][entry.unique_id] = gateway
 
     async def finish():
-        for platform in PLATFORM_TYPES:
+        for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
             await hass.config_entries.async_forward_entry_setup(entry, platform)
         await finish_setup(hass, entry, gateway)
     hass.async_create_task(finish())
 
     return True
+
+async def async_unload_entry(hass: HomeAssistantType, entry: ConfigEntry) -> None:
+    _LOGGER.debug("unload entry: %s (id: %s)", entry.title, entry.unique_id)
+
+    gateway = get_mysensors_gateway(hass, entry.unique_id)
+    if not gateway:
+        _LOGGER.error("cant unload configentry %s, no gateway found", entry.unique_id)
+        return
+
+    del hass.data[MYSENSORS_GATEWAYS][entry.unique_id]
+
+    #TODO: terminate connection by stopping the gateway
+
+    async def finish():
+        for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
+            await hass.config_entries.async_forward_entry_unload(entry, platform)
+    hass.async_create_task(finish())
 
 @callback
 def setup_mysensors_platform(

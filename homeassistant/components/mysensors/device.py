@@ -3,14 +3,14 @@ from functools import partial
 import logging
 from typing import Dict, List, Optional, Any
 
-from mysensors import Sensor
+from mysensors import Sensor, BaseAsyncGateway
 from mysensors.sensor import ChildSensor
 
 from homeassistant.const import ATTR_BATTERY_LEVEL, STATE_OFF, STATE_ON
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
-from .const import DevId
+from .const import DevId, ValueType
 from .const import DOMAIN
 
 from .const import CHILD_CALLBACK, NODE_CALLBACK, UPDATE_DELAY
@@ -30,14 +30,18 @@ class MySensorsDevice:
 
     def __init__(self, gateway, node_id, child_id, value_type):
         """Set up the MySensors device."""
-        self.gateway = gateway
-        self.node_id = node_id
-        self.child_id = child_id
-        self.value_type = value_type
+        self.gateway: BaseAsyncGateway = gateway
+        self.node_id: int = node_id
+        self.child_id: int = child_id
+        self.value_type: ValueType = value_type
         self.child_type = self._mysensors_childsensor.type
         self._values = {}
         self._update_scheduled = False
         self.hass = None
+
+    @property
+    def gateway_id(self) -> str:
+        return self.gateway.unique_id
 
     @property
     def _mysensors_sensor(self) -> Sensor:
@@ -63,13 +67,13 @@ class MySensorsDevice:
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        return f"mys{self.gateway.unique_id}-{self.node_id}-{self.child_id}-{self.value_type}"
+        return f"mys{self.gateway_id}-{self.node_id}-{self.child_id}-{self.value_type}"
 
     @property
     def device_info(self) -> Optional[Dict[str, Any]]:
         return {
             "identifiers": {
-                (DOMAIN, f"mys{self.gateway.unique_id}-{self.node_id}")
+                (DOMAIN, f"mys{self.gateway_id}-{self.node_id}")
             },
             "name": self.node_name,
             "manufacturer": DOMAIN,

@@ -72,11 +72,18 @@ class MySensorsConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         errors = {}
         if user_input is not None:
-            gateway_id = hashlib.sha256(user_input[CONF_DEVICE].encode()).hexdigest()[:8]
-            await self.async_set_unique_id(gateway_id)
-            self._abort_if_unique_id_configured()
-
             is_mqtt = user_input[CONF_DEVICE] == MQTT_COMPONENT
+            is_serial = False
+            try:
+                if user_input[CONF_DEVICE]!=MQTT_COMPONENT:
+                    try:
+                        await self.hass.async_add_executor_job(is_serial_port, user_input[CONF_DEVICE])
+                        is_serial = True
+                    except vol.Invalid:
+                        await self.hass.async_add_executor_job(is_socket_address, user_input[CONF_DEVICE])
+                        is_serial = False
+            except vol.Invalid:
+                errors[CONF_DEVICE] = "invalid_device"
 
             try:
                 if is_mqtt and CONF_TOPIC_IN_PREFIX in user_input:
@@ -95,14 +102,15 @@ class MySensorsConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     is_persistence_file(user_input[CONF_PERSISTENCE_FILE])
             except vol.Invalid:
                 errors[CONF_TCP_PORT] = "invalid_persistence_file"
-            try:
-                if user_input[CONF_DEVICE]!=MQTT_COMPONENT:
-                    try:
-                        await self.hass.async_add_executor_job(is_serial_port, user_input[CONF_DEVICE])
-                    except vol.Invalid:
-                        await self.hass.async_add_executor_job(is_socket_address, user_input[CONF_DEVICE])
-            except vol.Invalid:
-                errors[CONF_DEVICE] = "invalid_device"
+
+            uniquestr = user_input[CONF_DEVICE]
+            if is_mqtt:
+                uniquestr += user_input[CONF_TOPIC_IN_PREFIX] + user_input[CONF_TOPIC_OUT_PREFIX]
+            elif not is_serial:
+                uniquestr += user_input[CONF_TCP_PORT]
+            gateway_id = hashlib.sha256(uniquestr.encode()).hexdigest()[:8]
+            await self.async_set_unique_id(gateway_id)
+            self._abort_if_unique_id_configured()
 
             #if no errors so far, try to connect
             if not errors and not await try_connect(self.hass, user_input, uniqueid=gateway_id):

@@ -1,8 +1,24 @@
 """Support for tracking MySensors devices."""
+from typing import Callable
+
 from homeassistant.components import mysensors
 from homeassistant.components.device_tracker import DOMAIN
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.util import slugify
+
+
+async def async_setup_platform(hass: HomeAssistantType, config, async_add_entities, discovery_info=None) -> None:
+    pass
+
+
+async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, async_add_entities: Callable) -> None:
+    pass
+
+
+async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> None:
+    pass
 
 
 async def async_setup_scanner(hass, config, async_see, discovery_info=None):

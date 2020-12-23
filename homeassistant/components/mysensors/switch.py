@@ -1,4 +1,6 @@
 """Support for MySensors switches."""
+from typing import Callable
+
 import voluptuous as vol
 
 from homeassistant.components import mysensors
@@ -7,6 +9,7 @@ from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
 import homeassistant.helpers.config_validation as cv
 
 from .const import DOMAIN as MYSENSORS_DOMAIN, SERVICE_SEND_IR_CODE, MYSENSORS_DISCOVERY
+from ...config_entries import ConfigEntry
 from ...helpers.dispatcher import async_dispatcher_connect
 
 ATTR_IR_CODE = "V_IR_SEND"
@@ -15,8 +18,10 @@ SEND_IR_CODE_SERVICE_SCHEMA = vol.Schema(
     {vol.Optional(ATTR_ENTITY_ID): cv.entity_ids, vol.Required(ATTR_IR_CODE): cv.string}
 )
 
+
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     pass
+
 
 async def async_setup_entry(hass, config_entry: ConfigEntry, async_add_entities: Callable):
     """Set up the mysensors platform for switches."""
