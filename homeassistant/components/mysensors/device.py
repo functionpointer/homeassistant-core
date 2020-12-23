@@ -1,13 +1,17 @@
 """Handle MySensors devices."""
 from functools import partial
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional, Any
+
+from mysensors import Sensor
+from mysensors.sensor import ChildSensor
 
 from homeassistant.const import ATTR_BATTERY_LEVEL, STATE_OFF, STATE_ON
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 from .const import DevId
+from .const import DOMAIN
 
 from .const import CHILD_CALLBACK, NODE_CALLBACK, UPDATE_DELAY
 
@@ -24,23 +28,59 @@ MYSENSORS_PLATFORM_DEVICES = "mysensors_devices_{}"
 class MySensorsDevice:
     """Representation of a MySensors device."""
 
-    def __init__(self, gateway, node_id, child_id, name, value_type):
+    def __init__(self, gateway, node_id, child_id, value_type):
         """Set up the MySensors device."""
         self.gateway = gateway
         self.node_id = node_id
         self.child_id = child_id
-        self._name = name
         self.value_type = value_type
-        child = gateway.sensors[node_id].children[child_id]
-        self.child_type = child.type
+        self.child_type = self._mysensors_childsensor.type
         self._values = {}
         self._update_scheduled = False
         self.hass = None
 
     @property
+    def _mysensors_sensor(self) -> Sensor:
+        return self.gateway.sensors[self.node_id]
+
+    @property
+    def _mysensors_childsensor(self) -> ChildSensor:
+        return self._mysensors_sensor.children[self.child_id]
+
+    @property
+    def sketch_name(self) -> str:
+        return self._mysensors_sensor.sketch_name
+
+    @property
+    def sketch_version(self) -> str:
+        return self._mysensors_sensor.sketch_version
+
+    @property
+    def node_name(self) -> str:
+        """Name of the whole node (will be the same for several entities!)"""
+        return f"{self.sketch_name} {self.node_id}"
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID."""
+        return f"mys{self.gateway.unique_id}-{self.node_id}-{self.child_id}-{self.value_type}"
+
+    @property
+    def device_info(self) -> Optional[Dict[str, Any]]:
+        return {
+            "identifiers": {
+                (DOMAIN, f"mys{self.gateway.unique_id}-{self.node_id}")
+            },
+            "name": self.node_name,
+            "manufacturer": DOMAIN,
+            "model": self.node_name,
+            "sw_version": self.sketch_version,
+        }
+
+    @property
     def name(self):
         """Return the name of this entity."""
-        return self._name
+        return f"{self.node_name} {self.child_id}"
 
     @property
     def device_state_attributes(self):
@@ -71,7 +111,7 @@ class MySensorsDevice:
         for value_type, value in child.values.items():
             _LOGGER.debug(
                 "Entity update: %s: value_type %s, value = %s",
-                self._name,
+                self.name,
                 value_type,
                 value,
             )

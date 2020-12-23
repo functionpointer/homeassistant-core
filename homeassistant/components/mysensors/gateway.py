@@ -161,6 +161,7 @@ async def _get_gateway(hass, entry: Union[ConfigEntry,Dict[str, Any]], unique_id
     gateway.metric = hass.config.units.is_metric
     gateway.optimistic = data.get(CONF_OPTIMISTIC)
     gateway.device = device
+    gateway.unique_id = unique_id
     gateway.event_callback = _gw_callback_factory(hass, entry)
     if persistence:
         await gateway.start_persistence()

@@ -147,12 +147,6 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
 
     return True
 
-def _get_mysensors_name(gateway : BaseAsyncGateway, node_id: int, child_id: int) -> str:
-    """Return a name for a node child."""
-    node_name = f"{gateway.sensors[node_id].sketch_name} {node_id}"
-    return f"{node_name} {child_id}"
-
-
 @callback
 def setup_mysensors_platform(
     hass,
@@ -190,9 +184,8 @@ def setup_mysensors_platform(
             child = gateway.sensors[node_id].children[child_id]
             s_type = gateway.const.Presentation(child.type).name
             device_class_copy = device_class[s_type]
-        name = _get_mysensors_name(gateway, node_id, child_id)
 
-        args_copy = (*device_args, gateway, node_id, child_id, name, value_type)
+        args_copy = (*device_args, gateway, node_id, child_id, value_type)
         devices[dev_id] = device_class_copy(*args_copy)
         new_devices.append(devices[dev_id])
     if new_devices:
