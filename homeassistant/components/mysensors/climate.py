@@ -19,6 +19,7 @@ from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS, TEMP_FAHRENHEIT
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.typing import HomeAssistantType
 
 DICT_HA_TO_MYS = {
     HVAC_MODE_AUTO: "AutoChangeOver",
@@ -37,12 +38,12 @@ FAN_LIST = ["Auto", "Min", "Normal", "Max"]
 OPERATION_LIST = [HVAC_MODE_OFF, HVAC_MODE_AUTO, HVAC_MODE_COOL, HVAC_MODE_HEAT]
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+async def async_setup_platform(hass: HomeAssistantType, config, async_add_entities, discovery_info=None):
     """Set up the mysensors climate."""
     pass
 
 
-async def async_setup_entry(hass, config_entry: ConfigEntry, async_add_entities: Callable):
+async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, async_add_entities: Callable):
     async def async_discover(discovery_info):
         """Discover and add an MQTT cover."""
         mysensors.setup_mysensors_platform(
@@ -57,6 +58,9 @@ async def async_setup_entry(hass, config_entry: ConfigEntry, async_add_entities:
         hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
     )
 
+
+async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
+    return True
 
 class MySensorsHVAC(mysensors.device.MySensorsEntity, ClimateEntity):
     """Representation of a MySensors HVAC."""

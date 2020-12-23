@@ -11,6 +11,7 @@ import homeassistant.helpers.config_validation as cv
 from .const import DOMAIN as MYSENSORS_DOMAIN, SERVICE_SEND_IR_CODE, MYSENSORS_DISCOVERY
 from ...config_entries import ConfigEntry
 from ...helpers.dispatcher import async_dispatcher_connect
+from ...helpers.typing import HomeAssistantType
 
 ATTR_IR_CODE = "V_IR_SEND"
 
@@ -19,11 +20,11 @@ SEND_IR_CODE_SERVICE_SCHEMA = vol.Schema(
 )
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+async def async_setup_platform(hass: HomeAssistantType, config, async_add_entities, discovery_info=None):
     pass
 
 
-async def async_setup_entry(hass, config_entry: ConfigEntry, async_add_entities: Callable):
+async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, async_add_entities: Callable):
     """Set up the mysensors platform for switches."""
     device_class_map = {
         "S_DOOR": MySensorsSwitch,
@@ -86,6 +87,8 @@ async def async_setup_entry(hass, config_entry: ConfigEntry, async_add_entities:
         hass, MYSENSORS_DISCOVERY.format(config_entry.unique_id, DOMAIN), async_discover
     )
 
+async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
+    return True
 
 class MySensorsSwitch(mysensors.device.MySensorsEntity, SwitchEntity):
     """Representation of the value of a MySensors Switch child node."""

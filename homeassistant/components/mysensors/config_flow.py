@@ -107,7 +107,7 @@ class MySensorsConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if is_mqtt:
                 uniquestr += user_input[CONF_TOPIC_IN_PREFIX] + user_input[CONF_TOPIC_OUT_PREFIX]
             elif not is_serial:
-                uniquestr += user_input[CONF_TCP_PORT]
+                uniquestr += str(user_input[CONF_TCP_PORT])
             gateway_id = hashlib.sha256(uniquestr.encode()).hexdigest()[:8]
             await self.async_set_unique_id(gateway_id)
             self._abort_if_unique_id_configured()

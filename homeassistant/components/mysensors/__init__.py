@@ -144,6 +144,7 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
     hass.data[MYSENSORS_GATEWAYS][entry.unique_id] = gateway
 
     async def finish():
+        _LOGGER.debug("forwarding setup to %s", SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT)
         for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
             await hass.config_entries.async_forward_entry_setup(entry, platform)
         await finish_setup(hass, entry, gateway)
@@ -151,13 +152,13 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
 
     return True
 
-async def async_unload_entry(hass: HomeAssistantType, entry: ConfigEntry) -> None:
+async def async_unload_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool:
     _LOGGER.debug("unload entry: %s (id: %s)", entry.title, entry.unique_id)
 
     gateway = get_mysensors_gateway(hass, entry.unique_id)
     if not gateway:
         _LOGGER.error("cant unload configentry %s, no gateway found", entry.unique_id)
-        return
+        return False
 
     del hass.data[MYSENSORS_GATEWAYS][entry.unique_id]
 
@@ -167,6 +168,7 @@ async def async_unload_entry(hass: HomeAssistantType, entry: ConfigEntry) -> Non
         for platform in SUPPORTED_PLATFORMS_WITH_ENTRY_SUPPORT:
             await hass.config_entries.async_forward_entry_unload(entry, platform)
     hass.async_create_task(finish())
+    return True
 
 @callback
 def setup_mysensors_platform(

@@ -194,6 +194,7 @@ async def _discover_persistent_devices(hass, hass_config: ConfigEntry, gateway: 
             validated = validate_child(gateway, node_id, child)
             for platform, dev_ids in validated.items():
                 new_devices[platform].extend(dev_ids)
+    _LOGGER.debug("discovering persistent devices: %s", new_devices)
     for platform, dev_ids in new_devices.items():
         discover_mysensors_platform(hass, hass_config, platform, dev_ids)
     if tasks:

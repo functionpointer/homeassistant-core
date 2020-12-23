@@ -17,8 +17,8 @@ async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, 
     pass
 
 
-async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> None:
-    pass
+async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
+    return True
 
 
 async def async_setup_scanner(hass, config, async_see, discovery_info=None):
