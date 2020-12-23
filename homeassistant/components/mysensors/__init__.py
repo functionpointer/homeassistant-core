@@ -140,8 +140,8 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
         return False
 
     if MYSENSORS_GATEWAYS not in hass.data:
-        hass.data[MYSENSORS_GATEWAYS] = []
-    hass.data[MYSENSORS_GATEWAYS].append(gateway)
+        hass.data[MYSENSORS_GATEWAYS] = {}
+    hass.data[MYSENSORS_GATEWAYS][id(gateway)] = gateway
 
     hass.async_create_task(finish_setup(hass, entry, gateway))
 
