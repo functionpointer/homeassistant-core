@@ -31,6 +31,7 @@ from .const import (
 from .device import get_mysensors_devices
 from .gateway import finish_setup, get_mysensors_gateway, setup_gateway, gw_stop
 from .const import DevId
+from ... import config_entries
 from ...config_entries import ConfigEntry
 from ...helpers.typing import HomeAssistantType, ConfigType
 
@@ -120,14 +121,34 @@ CONFIG_SCHEMA = vol.Schema(
 
 async def async_setup(hass, config: ConfigType) -> bool:
     """Set up the MySensors component."""
-    if config is None:
+    if config is None or DOMAIN not in config:
         #when configured via ConfigEntry, hass calls async_setup(hass,None) and then calls async_setup_entry(...).
         #so in async_setup we have to check if there are any ConfigEntries and then return True. This lets async_setup_entry run.
         return bool(hass.config_entries.async_entries(DOMAIN))
 
+    config = config[DOMAIN]
+    user_inputs = [{
+        CONF_DEVICE: gw[CONF_DEVICE],
+        CONF_PERSISTENCE: gw.get(CONF_PERSISTENCE_FILE,None),
+        CONF_BAUD_RATE: gw.get(CONF_BAUD_RATE, None),
+        CONF_TCP_PORT: gw.get(CONF_TCP_PORT, None),
+        CONF_TOPIC_OUT_PREFIX: gw.get(CONF_TOPIC_OUT_PREFIX, None),
+        CONF_TOPIC_IN_PREFIX: gw.get(CONF_TOPIC_IN_PREFIX, None),
+
+        CONF_OPTIMISTIC: config.get(CONF_OPTIMISTIC, None),
+        CONF_RETAIN: config.get(CONF_RETAIN, None),
+        CONF_VERSION: config.get(CONF_VERSION, None),
+        #nodes config ignored at this time. renaming nodes can now be done from the frontend.
+    } for gw in config[CONF_GATEWAYS]]
+    user_inputs = [{k: v for k, v in userinput.items() if v is not None} for userinput in user_inputs]
 
     #there is an actual configuration in configuration.yaml, so we have to process it
-    _LOGGER.info("async setup called")
+    for user_input in user_inputs:
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": config_entries.SOURCE_IMPORT}, data=user_input
+            )
+        )
 
     return True
 

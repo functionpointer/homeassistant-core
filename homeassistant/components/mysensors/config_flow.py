@@ -22,6 +22,7 @@ from ...config_entries import ConfigEntry
 from ...core import callback
 from .gateway import _get_gateway, MQTT_COMPONENT, is_serial_port, is_socket_address
 from . import CONFIG_SCHEMA, CONF_VERSION, CONF_GATEWAYS, CONF_RETAIN, CONF_PERSISTENCE, CONF_OPTIMISTIC, GATEWAY_SCHEMA, DEFAULT_VERSION
+from ...data_entry_flow import RESULT_TYPE_CREATE_ENTRY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +70,15 @@ async def try_connect(hass, user_input, uniqueid):
 
 
 class MySensorsConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    async def async_step_import(self, user_input):
+        """Import a config entry.
+
+        Special type of import, we're not actually going to store any data.
+        Instead, we're going to rely on the values that are in config file.
+        """
+        return await self.async_step_user(user_input=user_input)
+
+
     async def async_step_user(self, user_input=None):
         errors = {}
         if user_input is not None:

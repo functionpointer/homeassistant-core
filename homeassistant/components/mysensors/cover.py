@@ -5,7 +5,7 @@ from typing import Callable
 from homeassistant.components import mysensors
 from homeassistant.components.cover import ATTR_POSITION, DOMAIN, CoverEntity
 from homeassistant.components.mysensors import on_unload
-from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY, MYSENSORS_DISCOVERY_DISPATCHER
+from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
