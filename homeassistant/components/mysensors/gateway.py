@@ -303,12 +303,16 @@ async def _gw_start(
             await gateway_ready
     except asyncio.TimeoutError:
         _LOGGER.warning(
-            "Gateway %s not ready after %s secs so continuing with setup",
+            "Gateway %s (%s) not ready after %s secs so continuing with setup",
             entry.data[CONF_DEVICE],
+            entry.entry_id,
             GATEWAY_READY_TIMEOUT,
         )
+    else:
+        _LOGGER.debug("Gateway %s is ready!", entry.entry_id)
     finally:
         hass.data[DOMAIN].pop(gateway_ready_key, None)
+        _LOGGER.debug("GW wait time is over")
 
 
 def _gw_callback_factory(

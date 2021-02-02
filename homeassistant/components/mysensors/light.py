@@ -93,6 +93,7 @@ class MySensorsLight(mysensors.device.MySensorsEntity, LightEntity):
 
         if self._state:
             return
+        self._logger.info("about to send light enable")
         self.gateway.set_child_value(
             self.node_id, self.child_id, set_req.V_LIGHT, 1, ack=1
         )

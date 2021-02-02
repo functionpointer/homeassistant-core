@@ -1,5 +1,6 @@
 """Config flow for MySensors."""
 import logging
+import os
 from typing import Dict, Optional
 
 from packaging.version import Version, parse as parse_version
@@ -33,6 +34,7 @@ from .const import (
     ConfGatewayType,
 )
 from .gateway import MQTT_COMPONENT, is_serial_port, is_socket_address, try_connect
+from ...config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,6 +58,31 @@ def _validate_version(version: str) -> Dict[str, str]:
     if not isinstance(parse_version(version), Version):
         return errors
     return {}
+
+
+def _is_same_device(
+    gw_type: ConfGatewayType, user_input: Dict[str, str], entry: ConfigEntry
+):
+    """Check if another ConfigDevice is actually the same as user_input.
+
+    This function only compares addresses and tcp ports, so it is possible to fool it with tricks like port forwarding.
+    """
+    if entry.data[CONF_DEVICE] != user_input[CONF_DEVICE]:
+        return False
+    if gw_type == CONF_GATEWAY_TYPE_TCP:
+        return entry.data.get(CONF_TCP_PORT, 5003) == user_input.get(
+            CONF_TCP_PORT, 5003
+        )
+    if gw_type == CONF_GATEWAY_TYPE_MQTT:
+        entry_topics = {
+            entry.data.get(CONF_TOPIC_IN_PREFIX),
+            entry.data.get(CONF_TOPIC_OUT_PREFIX),
+        }
+        return (
+            user_input.get(CONF_TOPIC_IN_PREFIX) in entry_topics
+            or user_input.get(CONF_TOPIC_OUT_PREFIX) in entry_topics
+        )
+    return True
 
 
 class MySensorsConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -159,6 +186,8 @@ class MySensorsConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     valid_subscribe_topic(user_input[CONF_TOPIC_IN_PREFIX])
                 except vol.Invalid:
                     errors[CONF_TOPIC_IN_PREFIX] = "invalid_subscribe_topic"
+                else:
+                    
 
             if CONF_TOPIC_OUT_PREFIX in user_input:
                 try:
@@ -182,6 +211,9 @@ class MySensorsConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="gw_mqtt", data_schema=schema, errors=errors
         )
+
+    def _normalize_persistence_file(self, path: str) -> str:
+        return os.path.realpath(os.path.normcase(self.hass.config.path(path)))
 
     async def validate_common(
         self,
@@ -209,12 +241,26 @@ class MySensorsConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         if gw_type == CONF_GATEWAY_TYPE_TCP
                         else "invalid_serial"
                     )
-
-            try:
-                if CONF_PERSISTENCE_FILE in user_input:
+            if CONF_PERSISTENCE_FILE in user_input:
+                try:
                     is_persistence_file(user_input[CONF_PERSISTENCE_FILE])
-            except vol.Invalid:
-                errors[CONF_PERSISTENCE_FILE] = "invalid_persistence_file"
+                except vol.Invalid:
+                    errors[CONF_PERSISTENCE_FILE] = "invalid_persistence_file"
+                else:
+                    real_persistence_path = self._normalize_persistence_file(
+                        user_input[CONF_PERSISTENCE_FILE]
+                    )
+                    for other_entry in self.hass.config_entries.async_entries(DOMAIN):
+                        if real_persistence_path == self._normalize_persistence_file(
+                            other_entry.data.get(CONF_PERSISTENCE_FILE)
+                        ):
+                            errors[CONF_PERSISTENCE_FILE] = "duplicate_persistence_file"
+                            break
+
+            for other_entry in self.hass.config_entries.async_entries(DOMAIN):
+                if _is_same_device(gw_type, user_input, other_entry):
+                    errors["base"] = "already_configured"
+                    break
 
             # if no errors so far, try to connect
             if not errors and not await try_connect(self.hass, user_input):
