@@ -1,0 +1,22 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured"
+        },
+        "error": {
+            "cannot_connect": "Failed to connect",
+            "invalid_evse_id": "Invalid EVSE-ID",
+            "empty_response": "Empty reponse. Check EVSE-ID.",
+            "evse_not_found": "EVSE not found in response.",
+            "unknown": "Unexpected error"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "base_url": "API base url",
+                    "evse_id": "EVSE-ID"
+                }
+            }
+        }
+    }
+}

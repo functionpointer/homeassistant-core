@@ -1477,6 +1477,9 @@ pycfdns==1.2.2
 # homeassistant.components.channels
 pychannels==1.0.0
 
+# homeassistant.components.chargecloud
+pychargecloud==0.0.3
+
 # homeassistant.components.cast
 pychromecast==12.1.4
 

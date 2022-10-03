@@ -62,6 +62,7 @@ FLOWS = {
         "canary",
         "cast",
         "cert_expiry",
+        "chargecloud",
         "cloudflare",
         "co2signal",
         "coinbase",

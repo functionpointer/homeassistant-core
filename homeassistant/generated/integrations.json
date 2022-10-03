@@ -590,6 +590,11 @@
       "iot_class": "local_polling",
       "name": "Channels"
     },
+    "chargecloud": {
+      "config_flow": true,
+      "iot_class": "cloud_polling",
+      "name": "chargecloud"
+    },
     "circuit": {
       "config_flow": false,
       "iot_class": "cloud_push",
