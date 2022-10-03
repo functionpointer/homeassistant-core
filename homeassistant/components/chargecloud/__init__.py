@@ -24,7 +24,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
 
-    api = chargecloudapi.Api(websession=async_get_clientsession())
+    api = chargecloudapi.Api(websession=async_get_clientsession(hass))
     # missing: validate api connection
 
     coordinator = ChargeCloudDataUpdateCoordinator(hass, api, entry.data["evse_id"])
@@ -70,4 +70,4 @@ class ChargeCloudDataUpdateCoordinator(DataUpdateCoordinator):
             async with async_timeout.timeout(10):
                 return await self.api.location_by_evse_id(self.evse_id)
         except Exception as err:
-            raise UpdateFailed(f"Error communicating with API: {err}")
+            raise UpdateFailed(f"Error communicating with API: {err}") from err

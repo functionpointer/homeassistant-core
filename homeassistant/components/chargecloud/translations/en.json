@@ -5,7 +5,7 @@
         },
         "error": {
             "cannot_connect": "Failed to connect",
-            "invalid_evse_id": "Invalid EVSE-ID",
+            "malformed_evse_id": "Malformed EVSE-ID",
             "empty_response": "Empty reponse. Check EVSE-ID.",
             "evse_not_found": "EVSE not found in response.",
             "unknown": "Unexpected error"
@@ -13,8 +13,8 @@
         "step": {
             "user": {
                 "data": {
-                    "base_url": "API base url",
-                    "evse_id": "EVSE-ID"
+                    "base_url": "API base url (leave empty for default)",
+                    "evse_id": "EVSE-ID (e.g. DECCH*ECCH1800155EBG*2)"
                 }
             }
         }

@@ -1,6 +1,7 @@
 """Platform for sensor integration."""
 from __future__ import annotations
 
+import chargecloudapi
 from chargecloudapi import Location
 
 from homeassistant.components.sensor import SensorEntity
@@ -46,18 +47,30 @@ class ChargeCloudRealtimeSensor(
         self.evse_id = evse_id
         self.coordinator = coordinator
         self._attr_unique_id = f"{evse_id}-realtime"
-        self._attr_attribution = f"chargecloud.de"
+        self._attr_attribution = "chargecloud.de"
         self._attr_device_class = None
         self._attr_native_unit_of_measurement = None
         self._attr_state_class = None
         self._attr_device_info = DeviceInfo(
-            name=self.evse_id,
+            name=self._get_location().name,
             identifiers={(DOMAIN, self.evse_id)},
             entry_type=None,
         )
+        # read data from coordinator, which should have data by now
+        self._read_coordinator_data()
 
-    @property
-    def icon(self):
+    def _get_location(self) -> Location:
+        for location in self.coordinator.data:
+            for evse in location.evses:
+                if evse.id == self.evse_id:
+                    return location
+
+    def _get_evse(self) -> chargecloudapi.Evse:
+        for evse in self._get_location().evses:
+            if evse.id == self.evse_id:
+                return evse
+
+    def _choose_icon(self, connectors: list[chargecloudapi.Connector]):
         iconmap: dict[str, str] = {
             "IEC_62196_T2": "mdi:ev-plug-type2",
             "IEC_62196_T2_COMBO": "mdi:ev-plug-ccs2",
@@ -65,15 +78,38 @@ class ChargeCloudRealtimeSensor(
             "TESLA": "mdi:ev-plug-tesla",
             "DOMESTIC_F": "mdi:power-socket-eu",
         }
-        standard = "asdf"
-        return iconmap.get(standard, "mdi:ev-station")
+        if len(connectors) != 1:
+            return "mdi:ev-station"
+        return iconmap.get(connectors[0].standard, "mdi:ev-station")
+
+    def _read_coordinator_data(self) -> None:
+        location = self._get_location()
+        evse = self._get_evse()
+        self._attr_native_value = evse.status
+        self._attr_icon = self._choose_icon(evse.connectors)
+        extra_data = {
+            "address": location.address,
+            "city": location.city,
+            "postal_code": location.postal_code,
+            "country": location.country,
+            "lat": location.coordinates.latitude,
+            "lon": location.coordinates.longitude,
+            "connectors": [
+                {
+                    "power_type": connector.power_type,
+                    "ampere": connector.ampere,
+                    "voltage": connector.voltage,
+                    "max_power": connector.max_power,
+                    "standard": connector.standard,
+                    "format": connector.format,
+                }
+                for connector in evse.connectors
+            ],
+        }
+        self._attr_extra_state_attributes = extra_data
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        for l in self.coordinator.data:
-            loc: Location = l
-            for evse in loc.evses:
-                if evse.id == self.evse_id:
-                    self._attr_native_value = evse.status
+        self._read_coordinator_data()
         self.async_write_ha_state()

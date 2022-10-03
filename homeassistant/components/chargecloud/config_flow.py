@@ -19,21 +19,22 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
+STEP_USER_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required("evse_id"): str,
+        vol.Optional("base_url"): str,
+    }
+)
+
+
 def evse_id(value: str) -> str:
+    """Verify evse_id is syntactically correct."""
     match = re.fullmatch(
         r"^([A-Z]+)\*([A-Z0-9]+)\*([A-Z0-9]*)(?:\*([A-Z0-9]+))?$", value
     )
     if match is None:
-        raise vol.Invalid
+        raise vol.Invalid(message="malformed evse")
     return value
-
-
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required("evse_id"): evse_id,
-        vol.Optional("base_url"): str,
-    }
-)
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
@@ -42,17 +43,17 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
     try:
-        eid = evse_id(data["evse_id"])
-    except vol.Invalid:
-        raise InvalidEvseId()
+        evse_id(data["evse_id"])
+    except vol.Invalid as exc:
+        raise MalformedEvseId() from exc
 
     api = chargecloudapi.Api(
-        websession=async_get_clientsession(), base_url=data.get("base_url")
+        websession=async_get_clientsession(hass), base_url=data.get("base_url")
     )
     try:
         locations = await api.location_by_evse_id(data["evse_id"])
-    except Exception as e:
-        raise CannotConnect(e)
+    except Exception as exc:
+        raise CannotConnect(exc) from exc
 
     if len(locations) == 0:
         raise EmptyResponse()
@@ -76,13 +77,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         errors = {}
+        if await self.is_duplicate(user_input):
+            return self.async_abort(reason="already_configured")
 
         try:
             await validate_input(self.hass, user_input)
         except CannotConnect:
             errors["base"] = "cannot_connect"
-        except InvalidEvseId:
-            errors["evse_id"] = "invalid_evse_id"
+        except MalformedEvseId:
+            errors["evse_id"] = "malformed_evse_id"
         except EmptyResponse:
             errors["base"] = "empty_response"
         except NotFoundException:
@@ -97,18 +100,25 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
+    async def is_duplicate(self, user_input) -> bool:
+        """Check if current device is already configured."""
+        for other_evse in self._async_current_entries():
+            if other_evse.data["evse_id"] == user_input["evse_id"]:
+                return True
+        return False
+
 
 class CannotConnect(HomeAssistantError):
     """Error to indicate we cannot connect."""
 
 
 class EmptyResponse(HomeAssistantError):
-    """Error to indicate we didn't find the evse"""
+    """Error to indicate we didn't find the evse."""
 
 
-class InvalidEvseId(HomeAssistantError):
-    pass
+class MalformedEvseId(HomeAssistantError):
+    """Error to indicate a syntactically wrong evse-id."""
 
 
 class NotFoundException(HomeAssistantError):
-    pass
+    """Error to indicate the evse-id was not found on the api."""
