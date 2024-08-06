@@ -383,6 +383,7 @@ class TibberSensorElPrice(TibberSensor):
             "off_peak_1": None,
             "peak": None,
             "off_peak_2": None,
+            "spot_prices": None,
         }
         self._attr_icon = ICON
         self._attr_unique_id = self._tibber_home.home_id
@@ -418,6 +419,19 @@ class TibberSensorElPrice(TibberSensor):
         self._attr_extra_state_attributes.update(attrs)
         self._attr_available = self._attr_native_value is not None
         self._attr_native_unit_of_measurement = self._tibber_home.price_unit
+
+        spot_prices = [
+            {
+                "start_time": datetime.datetime.fromisoformat(dt),
+                "price_total": price,
+                "price_level": level,
+            }
+            for (dt, price), level in zip(
+                self._tibber_home.price_total.items(),
+                self._tibber_home.price_level.values(),
+            )
+        ]
+        self._attr_extra_state_attributes["spot_prices"] = spot_prices
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _fetch_data(self) -> None:
