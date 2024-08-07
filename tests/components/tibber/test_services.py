@@ -11,8 +11,9 @@ from homeassistant.components.tibber.const import DOMAIN
 from homeassistant.components.tibber.services import PRICE_SERVICE_NAME, __get_prices
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.util.dt import as_local
 
-STARTTIME = dt.datetime.fromtimestamp(1615766400)
+STARTTIME = as_local(dt.datetime.fromtimestamp(1615766400))
 
 
 def generate_mock_home_data():
@@ -139,24 +140,24 @@ async def test_get_prices(
         "prices": {
             "first_home": [
                 {
-                    "start_time": STARTTIME,
+                    "start_time": STARTTIME.isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
                 {
-                    "start_time": STARTTIME + dt.timedelta(hours=1),
+                    "start_time": (STARTTIME + dt.timedelta(hours=1)).isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
             ],
             "second_home": [
                 {
-                    "start_time": STARTTIME,
+                    "start_time": STARTTIME.isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
                 {
-                    "start_time": STARTTIME + dt.timedelta(hours=1),
+                    "start_time": (STARTTIME + dt.timedelta(hours=1)).isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
@@ -178,24 +179,24 @@ async def test_get_prices_no_input(
         "prices": {
             "first_home": [
                 {
-                    "start_time": STARTTIME,
+                    "start_time": STARTTIME.isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
                 {
-                    "start_time": STARTTIME + dt.timedelta(hours=1),
+                    "start_time": (STARTTIME + dt.timedelta(hours=1)).isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
             ],
             "second_home": [
                 {
-                    "start_time": STARTTIME,
+                    "start_time": STARTTIME.isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
                 {
-                    "start_time": STARTTIME + dt.timedelta(hours=1),
+                    "start_time": (STARTTIME + dt.timedelta(hours=1)).isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
@@ -220,24 +221,106 @@ async def test_get_prices_start_tomorrow(
         "prices": {
             "first_home": [
                 {
-                    "start_time": tomorrow,
+                    "start_time": tomorrow.isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
                 {
-                    "start_time": tomorrow + dt.timedelta(hours=1),
+                    "start_time": (tomorrow + dt.timedelta(hours=1)).isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
             ],
             "second_home": [
                 {
-                    "start_time": tomorrow,
+                    "start_time": tomorrow.isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
                 {
-                    "start_time": tomorrow + dt.timedelta(hours=1),
+                    "start_time": (tomorrow + dt.timedelta(hours=1)).isoformat(),
+                    "price": 0.46914,
+                    "level": "VERY_EXPENSIVE",
+                },
+            ],
+        }
+    }
+
+
+async def test_get_prices_no_timezone(
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Test __get_prices with start date tomorrow."""
+    freezer.move_to(STARTTIME)
+    tomorrow = STARTTIME + dt.timedelta(days=1)
+    call = ServiceCall(
+        DOMAIN, PRICE_SERVICE_NAME, {"start": tomorrow.replace(tzinfo=None).isoformat()}
+    )
+
+    result = await __get_prices(call, hass=create_mock_hass())
+
+    assert result == {
+        "prices": {
+            "first_home": [
+                {
+                    "start_time": tomorrow.isoformat(),
+                    "price": 0.46914,
+                    "level": "VERY_EXPENSIVE",
+                },
+                {
+                    "start_time": (tomorrow + dt.timedelta(hours=1)).isoformat(),
+                    "price": 0.46914,
+                    "level": "VERY_EXPENSIVE",
+                },
+            ],
+            "second_home": [
+                {
+                    "start_time": tomorrow.isoformat(),
+                    "price": 0.46914,
+                    "level": "VERY_EXPENSIVE",
+                },
+                {
+                    "start_time": (tomorrow + dt.timedelta(hours=1)).isoformat(),
+                    "price": 0.46914,
+                    "level": "VERY_EXPENSIVE",
+                },
+            ],
+        }
+    }
+
+
+async def test_get_prices_with_timezone(
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Test __get_prices with start date tomorrow."""
+    freezer.move_to(STARTTIME)
+    tomorrow = STARTTIME + dt.timedelta(days=1)
+    call = ServiceCall(DOMAIN, PRICE_SERVICE_NAME, {"start": tomorrow.isoformat()})
+
+    result = await __get_prices(call, hass=create_mock_hass())
+
+    assert result == {
+        "prices": {
+            "first_home": [
+                {
+                    "start_time": tomorrow.isoformat(),
+                    "price": 0.46914,
+                    "level": "VERY_EXPENSIVE",
+                },
+                {
+                    "start_time": (tomorrow + dt.timedelta(hours=1)).isoformat(),
+                    "price": 0.46914,
+                    "level": "VERY_EXPENSIVE",
+                },
+            ],
+            "second_home": [
+                {
+                    "start_time": tomorrow.isoformat(),
+                    "price": 0.46914,
+                    "level": "VERY_EXPENSIVE",
+                },
+                {
+                    "start_time": (tomorrow + dt.timedelta(hours=1)).isoformat(),
                     "price": 0.46914,
                     "level": "VERY_EXPENSIVE",
                 },
