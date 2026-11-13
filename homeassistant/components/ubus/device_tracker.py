@@ -98,7 +98,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the device tracker for a ubus config entry."""
-    coordinator = config_entry.runtime_data
+    coordinator = config_entry.runtime_data.update_coordinator
     tracked: set[str] = set()
 
     device_registry = dr.async_get(hass)

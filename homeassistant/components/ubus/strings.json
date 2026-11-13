@@ -29,6 +29,10 @@
     "yaml_import_invalid_auth": {
       "description": "The YAML configuration for OpenWrt (ubus) at `{host}` could not be imported because the credentials were rejected.\n\nPlease check the username and password in your `configuration.yaml`, then restart Home Assistant.",
       "title": "YAML import failed: invalid authentication"
+    },
+    "permission_denied_system_board": {
+      "description": "The OpenWrt (ubus) integration cannot read system board information needed to determine if a firmware update is available.\n\nPlease add the required permissions in your OpenWrt manually.",
+      "title": "Permission denied for version information"
     }
   },
   "selector": {

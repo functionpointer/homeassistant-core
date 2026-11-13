@@ -1,4 +1,5 @@
 """DataUpdateCoordinator for the OpenWrt (ubus) integration."""
+from dataclasses import dataclass
 
 from datetime import datetime, timedelta
 import logging
@@ -11,15 +12,27 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
+from homeassistant.helpers import issue_registry as ir
 
 from .const import CONF_DHCP_SOFTWARE, DOMAIN
+from .update_coordinator import UbusFirmwareCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 UPDATE_INTERVAL = timedelta(seconds=30)
 LEASE_REREAD_INTERVAL = timedelta(minutes=10)
 
-type UbusConfigEntry = ConfigEntry[UbusDataUpdateCoordinator]
+
+type UbusConfigEntry = ConfigEntry[
+    UbusData
+]
+
+@dataclass
+class UbusData:
+    """Runtime data for UBUS integration."""
+
+    update_coordinator: UbusDataUpdateCoordinator
+    firmware_coordinator: UbusFirmwareCoordinator
 
 
 class UbusDataUpdateCoordinator(DataUpdateCoordinator[dict[str, str | None]]):
@@ -36,6 +49,8 @@ class UbusDataUpdateCoordinator(DataUpdateCoordinator[dict[str, str | None]]):
             config_entry.data[CONF_USERNAME],
             config_entry.data[CONF_PASSWORD],
         )
+        self.board: dict[str, Any] = {}
+        self.attendedsysupgrade: dict[str, Any] = {}
         self._hostapd: list[str] = []
         self._leasefile: str | None = None
         self._mac2name: dict[str, str] | None = None
@@ -59,15 +74,23 @@ class UbusDataUpdateCoordinator(DataUpdateCoordinator[dict[str, str | None]]):
         """Query the router, re-authenticating once if the session expired."""
         if self.ubus.session_id is None:
             self._login()
-        try:
-            return self._read_clients()
-        except PermissionError:
-            # The router dropped our session (e.g. after a reboot); log back in.
-            self._login()
-        try:
-            return self._read_clients()
-        except PermissionError as err:
-            raise UpdateFailed(f"Access denied by ubus at {self.host}") from err
+        for i in range(2):
+            try:
+                ret = self._read_clients()
+            except PermissionError as err:
+                if i==0:
+                    # The router dropped our session (e.g. after a reboot); log back in.
+                    self._login()
+                    continue
+                else:
+                    break
+
+            self.board = self._fetch_system_board()
+            self.attendedsysupgrade = self._fetch_attendedsysupgrade()
+
+            return ret
+
+        raise UpdateFailed(f"Access denied by ubus at {self.host}") from err
 
     def _login(self) -> None:
         """Open a ubus session, raising UpdateFailed on failure."""
@@ -79,6 +102,44 @@ class UbusDataUpdateCoordinator(DataUpdateCoordinator[dict[str, str | None]]):
             raise UpdateFailed(f"Error connecting to ubus at {self.host}") from err
         if session_id is None:
             raise UpdateFailed(f"Invalid credentials for ubus at {self.host}")
+
+    def _fetch_attendedsysupgrade(self) -> str:
+        try:
+            result = self.ubus.get_uci_config("attendedsysupgrade", "server")
+        except (ConnectionError, PermissionError) as err:
+            self.logger.warning(f"Error fetching attendedsysupgrade infos from {self.host}: {err}")
+            return DEFAULT_ASU_SERVER
+
+        for values in (result or {}).get("values", {}).values():
+            if url := values.get("url"):
+                return url.rstrip("/")
+        return DEFAULT_ASU_SERVER
+
+    def _fetch_system_board(self) -> dict[str, Any]:
+        try:
+            ret = self.ubus.system_board()
+        except PermissionError as err:
+            self.logger.warning(f"Access denied fetching system_board: ", err)
+            ir.create_issue(
+                hass,
+                DOMAIN,
+                f"permission_denied_system_board_{config_entry.entry_id}",
+                config_entry_id=config_entry.entry_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="permission_denied_system_board",
+            )
+            return {}
+        except ConnectionError as err:
+            self.logger.warning(f"error fetching system_board: ", err)
+            return {}
+        if not isinstance(board, dict):
+            # The ubus client returns None when the HTTP request fails.
+            self.logger.warning(f"error fetching system_board, received ", board)
+            return {}
+
+        ir.delete_issue(hass, DOMAIN, f"permission_denied_system_board_{config_entry.entry_id}")
+        return ret
 
     def _read_clients(self) -> dict[str, str | None]:
         """Return authorized clients mapped to their DHCP hostname.
@@ -178,3 +239,30 @@ class UbusDataUpdateCoordinator(DataUpdateCoordinator[dict[str, str | None]]):
                 if hostname := lease["hostname"]:
                     mac2name[mac.upper()] = hostname
         return mac2name
+
+class UBUSReleasesDataUpdateCoordinator(DataUpdateCoordinator[Releases]):
+    """Class to manage fetching UBUS releases."""
+
+    def __init__(self, hass: HomeAssistant, repo: str) -> None:
+        """Initialize the WLED releases updater for a firmware repository."""
+        self.repo = repo
+        self.wled = WLEDReleases(session=async_get_clientsession(hass), repo=repo)
+        super().__init__(
+            hass,
+            LOGGER,
+            config_entry=None,
+            name=DOMAIN,
+            update_interval=RELEASES_SCAN_INTERVAL,
+        )
+
+    @override
+    async def _async_update_data(self) -> Releases:
+        """Fetch release data from WLED."""
+        try:
+            return await self.wled.releases()
+        except WLEDError as error:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="invalid_response_github_error",
+                translation_placeholders={"error": str(error)},
+            ) from error

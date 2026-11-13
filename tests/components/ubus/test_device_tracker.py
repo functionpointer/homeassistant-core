@@ -51,9 +51,13 @@ async def test_only_authorized_clients_are_tracked(
     assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
     await hass.async_block_till_done()
 
-    entries = er.async_entries_for_config_entry(
-        entity_registry, mock_config_entry.entry_id
-    )
+    entries = [
+        e
+        for e in er.async_entries_for_config_entry(
+            entity_registry, mock_config_entry.entry_id
+        )
+        if e.domain == DEVICE_TRACKER_DOMAIN
+    ]
 
     assert {e.unique_id for e in entries} == {MAC_PHONE, MAC_LAPTOP}
     assert MAC_GUEST not in {e.unique_id for e in entries}
@@ -248,9 +252,13 @@ async def test_disabled_trackers_not_recreated(
             await hass.async_block_till_done(wait_background_tasks=True)
 
     assert mock_init.call_count == 2
-    entries = er.async_entries_for_config_entry(
-        entity_registry, mock_config_entry.entry_id
-    )
+    entries = [
+        e
+        for e in er.async_entries_for_config_entry(
+            entity_registry, mock_config_entry.entry_id
+        )
+        if e.domain == DEVICE_TRACKER_DOMAIN
+    ]
     assert {e.disabled_by for e in entries} == {er.RegistryEntryDisabler.INTEGRATION}
 
 

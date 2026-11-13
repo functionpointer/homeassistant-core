@@ -9,6 +9,7 @@ import pytest
 from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 from pytest_homeassistant.typing import WebSocketGenerator
 
+from homeassistant.components.device_tracker import DOMAIN as DEVICE_TRACKER_DOMAIN
 from homeassistant.components.ubus.const import DOMAIN
 from homeassistant.components.ubus.device_tracker import UbusScannerEntity
 from homeassistant.config_entries import ConfigEntryState
@@ -74,9 +75,13 @@ async def test_session_refreshed_after_permission_error(
 
     assert mock_config_entry.state is ConfigEntryState.LOADED
     assert mock_ubus.return_value.connect.call_count == 2
-    entries = er.async_entries_for_config_entry(
-        entity_registry, mock_config_entry.entry_id
-    )
+    entries = [
+        e
+        for e in er.async_entries_for_config_entry(
+            entity_registry, mock_config_entry.entry_id
+        )
+        if e.domain == DEVICE_TRACKER_DOMAIN
+    ]
     assert {e.unique_id for e in entries} == {MAC_PHONE, MAC_LAPTOP}
 
 
